@@ -1,0 +1,51 @@
+name: Build WeaponFireRecoil (AML)
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # Mod ini -> ../WeaponFireRecoil_AML (Android.mk mencari AML di ../../AndroidModLoader-main)
+      - name: Checkout mod
+        uses: actions/checkout@v4
+        with:
+          path: WeaponFireRecoil_AML
+
+      - name: Checkout AndroidModLoader (header + config/logger)
+        uses: actions/checkout@v4
+        with:
+          repository: RusJJ/AndroidModLoader
+          path: AndroidModLoader-main
+
+      - name: Install Android NDK r24
+        uses: nttld/setup-ndk@v1
+        id: ndk
+        with:
+          ndk-version: r24
+
+      - name: Build libWeaponFireRecoil.so (arm64-v8a)
+        working-directory: WeaponFireRecoil_AML
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+        run: |
+          ndk-build NDK_PROJECT_PATH=. \
+            APP_BUILD_SCRIPT=./jni/Android.mk \
+            NDK_APPLICATION_MK=./jni/Application.mk \
+            NDK_DEBUG=0 -j$(nproc)
+
+      - name: Collect output
+        run: |
+          mkdir -p out
+          cp WeaponFireRecoil_AML/libs/arm64-v8a/libWeaponFireRecoil.so out/
+          cp WeaponFireRecoil_AML/weapon_fire_recoil.ini out/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WeaponFireRecoil_AML
+          path: out/*
